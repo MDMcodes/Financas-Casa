@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Livro-Caixa — Finanças da Casa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -423,48 +423,35 @@
     .del-btn{ width: 38px; height: 38px; font-size: 18px; }
 
     #form-panel{
-      position: fixed;
-      left: 0; right: 0; bottom: 0;
-      max-height: 82vh;
-      overflow-y: auto;
-      border-radius: 20px 20px 0 0;
-      transform: translateY(105%);
-      transition: transform .25s ease;
-      z-index: 40;
-      box-shadow: 0 -8px 30px rgba(0,0,0,0.25);
-    }
-    #form-panel.open{ transform: translateY(0); }
-
-    .sheet-backdrop{
       display: none;
-      position: fixed; inset: 0;
-      background: rgba(35,41,58,0.4);
-      z-index: 30;
+      position: relative;
+      margin-bottom: 20px;
+      border: 2px solid var(--ink);
     }
-    .sheet-backdrop.open{ display: block; }
+    #form-panel.open{ display: block; }
 
     .sheet-handle{
-      width: 40px; height: 4px;
-      background: var(--rule);
-      border-radius: 100px;
-      margin: 0 auto 14px;
+      display: none;
     }
     .sheet-close{
       position: absolute;
       top: 14px; right: 16px;
       border: none;
       background: transparent;
-      font-size: 20px;
+      font-size: 22px;
+      line-height: 1;
       color: var(--ink-soft);
       cursor: pointer;
+      padding: 6px;
     }
 
     .fab{
       display: flex;
       align-items: center; justify-content: center;
       position: fixed;
-      right: 20px; bottom: 22px;
-      width: 58px; height: 58px;
+      right: 20px;
+      bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+      width: 60px; height: 60px;
       border-radius: 50%;
       background: var(--ink);
       color: var(--paper);
@@ -474,6 +461,7 @@
       cursor: pointer;
       z-index: 20;
     }
+    .fab.hide{ display: none; }
   }
 
   @media (min-width: 761px){
@@ -670,7 +658,6 @@
 
 </div>
 
-<div class="sheet-backdrop" id="backdrop"></div>
 <button class="fab" id="fabAdd" aria-label="Adicionar lançamento">+</button>
 
 <footer>
@@ -1030,20 +1017,17 @@
     render();
   });
 
-  // Mobile sheet handling
+  // Mobile form panel handling (simple show/hide, no fixed overlay)
   const formPanel = document.getElementById('form-panel');
-  const backdrop = document.getElementById('backdrop');
   function openSheet(){
     formPanel.classList.add('open');
-    backdrop.classList.add('open');
+    formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function closeSheet(){
     formPanel.classList.remove('open');
-    backdrop.classList.remove('open');
   }
   document.getElementById('fabAdd').addEventListener('click', openSheet);
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
-  backdrop.addEventListener('click', closeSheet);
 
   // Category manager toggle
   document.getElementById('openCatManager').addEventListener('click', function(){
@@ -1151,6 +1135,7 @@
   // ===================== Google Drive sync =====================
   const DRIVE_CLIENT_ID_KEY = 'household-ledger-drive-client-id';
   const DRIVE_AUTO_SYNC_KEY = 'household-ledger-drive-autosync';
+  const DRIVE_CONNECTED_KEY = 'household-ledger-drive-connected';
   const DRIVE_FILE_NAME = 'financas-casa-backup.json';
   const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
@@ -1160,6 +1145,7 @@
   let driveFileId = null;
   let driveAutoSync = localStorage.getItem(DRIVE_AUTO_SYNC_KEY) === 'true';
   let drivePushTimer = null;
+  let driveIsAutoAttempt = false;
 
   function driveStatusEl(){ return document.getElementById('driveStatusText'); }
 
@@ -1226,17 +1212,33 @@
         scope: DRIVE_SCOPE,
         callback: handleDriveTokenResponse
       });
+
+      // If the user connected before, try to reconnect silently (no login prompt)
+      if(localStorage.getItem(DRIVE_CONNECTED_KEY) === 'true'){
+        driveIsAutoAttempt = true;
+        setDriveStatus('Reconectando à sua conta do Google Drive...');
+        driveTokenClient.requestAccessToken({ prompt: '' });
+      }
     });
   }
 
   function handleDriveTokenResponse(resp){
+    const wasAuto = driveIsAutoAttempt;
+    driveIsAutoAttempt = false;
+
     if(resp.error){
-      setDriveStatus('Não foi possível conectar: ' + resp.error + '. Tente novamente.');
       driveAccessToken = null;
+      if(wasAuto){
+        // Silent reconnect failed (session expired, cookies blocked, etc.) — just ask for a normal click, no scary error.
+        setDriveStatus('Sua sessão anterior expirou. Clique em "Conectar ao Google Drive" pra continuar de onde parou.');
+      } else {
+        setDriveStatus('Não foi possível conectar: ' + resp.error + '. Tente novamente.');
+      }
       renderDriveUI();
       return;
     }
     driveAccessToken = resp.access_token;
+    localStorage.setItem(DRIVE_CONNECTED_KEY, 'true');
     setDriveStatus('Conectado. Procurando seu backup no Drive...');
     renderDriveUI();
     driveFindOrPrepareFile();
@@ -1369,6 +1371,7 @@
     driveAccessToken = null;
     driveFileId = null;
     localStorage.removeItem(DRIVE_CLIENT_ID_KEY);
+    localStorage.removeItem(DRIVE_CONNECTED_KEY);
     document.getElementById('driveClientIdInput').value = '';
     renderDriveUI();
   });
@@ -1391,6 +1394,7 @@
     }
     driveAccessToken = null;
     driveFileId = null;
+    localStorage.removeItem(DRIVE_CONNECTED_KEY);
     renderDriveUI();
     setDriveStatus('Desconectado.');
   });
