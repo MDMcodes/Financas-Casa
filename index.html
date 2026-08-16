@@ -199,7 +199,7 @@
     border: 1px solid var(--rule);
     background: #fff;
     font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 14px;
+    font-size: 16px;
     color: var(--ink);
   }
   .field input:focus, .field select:focus{
@@ -288,6 +288,29 @@
   .cat-row:last-child{ border-bottom: none; }
   .cat-row .cat-info .cat-nome{ font-size: 14px; font-weight: 500; }
   .cat-row .cat-info .cat-desc{ font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+  .backup-text{
+    font-size: 13px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin: 0 0 16px;
+  }
+  .backup-actions{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .btn-inline{
+    width: auto;
+    padding: 11px 18px;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .btn-secondary{
+    background: var(--paper-deep);
+    color: var(--ink);
+  }
 
   .btn-add{
     margin-top: 4px;
@@ -396,6 +419,9 @@
     .layout{ grid-template-columns: 1fr; }
     .row2{ grid-template-columns: 1fr; }
 
+    .month-switch button{ width: 44px; height: 44px; font-size: 19px; }
+    .del-btn{ width: 38px; height: 38px; font-size: 18px; }
+
     #form-panel{
       position: fixed;
       left: 0; right: 0; bottom: 0;
@@ -465,6 +491,7 @@
     font-family: 'IBM Plex Mono', monospace;
   }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -592,6 +619,52 @@
         </form>
         <ul class="cat-list" id="catList"></ul>
       </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <h2>Backup dos seus dados</h2>
+        <p class="backup-text">
+          Tudo fica salvo só neste navegador. Se limpar o cache, trocar de celular ou desinstalar o app, os lançamentos somem. Exporte um arquivo de backup de vez em quando e guarde em algum lugar seguro (Google Drive, e-mail, WhatsApp pra você mesmo) — depois é só importar de volta se precisar.
+        </p>
+        <div class="backup-actions">
+          <button type="button" class="btn-add btn-inline" id="exportBackup">Exportar backup (.json)</button>
+          <label class="btn-add btn-inline btn-secondary" for="importBackup">
+            Importar backup
+          </label>
+          <input type="file" id="importBackup" accept="application/json" style="display:none;">
+        </div>
+        <p class="field-hint" id="backupStatus"></p>
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <h2>Google Drive</h2>
+
+        <div id="driveSetup">
+          <p class="backup-text">
+            Conecte sua conta do Google Drive pra salvar os lançamentos automaticamente na nuvem, sem precisar exportar/importar manualmente. Isso exige um Client ID do Google Cloud configurado pra esta URL — veja o passo a passo que te expliquei.
+          </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="driveClientIdInput" placeholder="Cole aqui seu Client ID (...apps.googleusercontent.com)" style="flex:1; min-width:220px; padding:10px 12px; border-radius:9px; border:1px solid var(--rule); font-size:16px;">
+            <button type="button" class="btn-add btn-inline" id="saveClientId">Salvar</button>
+          </div>
+        </div>
+
+        <div id="driveConnected" style="display:none;">
+          <p class="backup-text" id="driveStatusText">Não conectado.</p>
+          <div class="backup-actions">
+            <button type="button" class="btn-add btn-inline" id="driveConnectBtn">Conectar ao Google Drive</button>
+            <button type="button" class="btn-add btn-inline btn-secondary" id="drivePushBtn" style="display:none;">Enviar para o Drive</button>
+            <button type="button" class="btn-add btn-inline btn-secondary" id="drivePullBtn" style="display:none;">Baixar do Drive</button>
+            <button type="button" class="btn-add btn-inline btn-secondary" id="driveDisconnectBtn" style="display:none;">Desconectar</button>
+          </div>
+          <label class="checkbox-label" style="margin-top:14px; display:none;" id="autoSyncWrap">
+            <input type="checkbox" id="autoSyncToggle">
+            Sincronizar automaticamente a cada alteração
+          </label>
+          <p style="margin-top:10px;">
+            <button type="button" class="link-btn" id="editClientId">trocar Client ID</button>
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -601,7 +674,7 @@
 <button class="fab" id="fabAdd" aria-label="Adicionar lançamento">+</button>
 
 <footer>
-  Os dados ficam salvos apenas neste navegador (localStorage) — não são enviados para nenhum servidor.
+  Os dados ficam salvos apenas neste navegador (localStorage) — não são enviados para nenhum servidor. Use "Exportar backup" em Categorias para guardar uma cópia de segurança.
 </footer>
 
 <script>
@@ -636,6 +709,7 @@
   function saveCategories(){
     try{
       localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify(categories));
+      if(typeof scheduleAutoPush === 'function') scheduleAutoPush();
     }catch(e){
       console.error('Erro ao salvar categorias:', e);
     }
@@ -685,6 +759,7 @@
   function saveData(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+      if(typeof scheduleAutoPush === 'function') scheduleAutoPush();
     }catch(e){
       console.error('Erro ao salvar dados:', e);
       alert('Não foi possível salvar os dados neste navegador.');
@@ -1018,6 +1093,320 @@
     renderCategoryManager();
     render();
   });
+
+  // Export backup
+  document.getElementById('exportBackup').addEventListener('click', function(){
+    const payload = {
+      app: 'financas-casa',
+      exportedAt: new Date().toISOString(),
+      transactions,
+      categories
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `backup-financas-casa-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    document.getElementById('backupStatus').textContent = 'Backup exportado agora há pouco. Guarde o arquivo em um lugar seguro.';
+  });
+
+  // Import backup
+  document.getElementById('importBackup').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const statusEl = document.getElementById('backupStatus');
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      try{
+        const data = JSON.parse(evt.target.result);
+        if(!Array.isArray(data.transactions) || !Array.isArray(data.categories)){
+          throw new Error('formato inválido');
+        }
+        const quando = data.exportedAt ? new Date(data.exportedAt).toLocaleString('pt-BR') : 'data desconhecida';
+        const confirmMsg = `Esse backup tem ${data.transactions.length} lançamento(s) e foi exportado em ${quando}.\n\nIsso vai SUBSTITUIR todos os dados salvos neste navegador agora. Quer continuar?`;
+        if(!confirm(confirmMsg)){ e.target.value = ''; return; }
+
+        transactions = data.transactions;
+        categories = data.categories;
+        saveData();
+        saveCategories();
+        renderCategorySelect();
+        renderCategoryManager();
+        render();
+        statusEl.textContent = 'Backup importado com sucesso.';
+      }catch(err){
+        alert('Não foi possível ler esse arquivo. Verifique se é um backup .json exportado por este site.');
+      } finally {
+        e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // ===================== Google Drive sync =====================
+  const DRIVE_CLIENT_ID_KEY = 'household-ledger-drive-client-id';
+  const DRIVE_AUTO_SYNC_KEY = 'household-ledger-drive-autosync';
+  const DRIVE_FILE_NAME = 'financas-casa-backup.json';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+
+  let driveClientId = localStorage.getItem(DRIVE_CLIENT_ID_KEY) || '';
+  let driveTokenClient = null;
+  let driveAccessToken = null;
+  let driveFileId = null;
+  let driveAutoSync = localStorage.getItem(DRIVE_AUTO_SYNC_KEY) === 'true';
+  let drivePushTimer = null;
+
+  function driveStatusEl(){ return document.getElementById('driveStatusText'); }
+
+  function renderDriveUI(){
+    const setupEl = document.getElementById('driveSetup');
+    const connectedEl = document.getElementById('driveConnected');
+
+    if(!driveClientId){
+      setupEl.style.display = 'block';
+      connectedEl.style.display = 'none';
+      return;
+    }
+    setupEl.style.display = 'none';
+    connectedEl.style.display = 'block';
+
+    const connectBtn = document.getElementById('driveConnectBtn');
+    const pushBtn = document.getElementById('drivePushBtn');
+    const pullBtn = document.getElementById('drivePullBtn');
+    const disconnectBtn = document.getElementById('driveDisconnectBtn');
+    const autoSyncWrap = document.getElementById('autoSyncWrap');
+    const autoSyncToggle = document.getElementById('autoSyncToggle');
+
+    if(driveAccessToken){
+      connectBtn.style.display = 'none';
+      pushBtn.style.display = 'inline-flex';
+      pullBtn.style.display = 'inline-flex';
+      disconnectBtn.style.display = 'inline-flex';
+      autoSyncWrap.style.display = 'flex';
+      autoSyncToggle.checked = driveAutoSync;
+    } else {
+      connectBtn.style.display = 'inline-flex';
+      pushBtn.style.display = 'none';
+      pullBtn.style.display = 'none';
+      disconnectBtn.style.display = 'none';
+      autoSyncWrap.style.display = 'none';
+    }
+  }
+
+  function setDriveStatus(text){
+    const el = driveStatusEl();
+    if(el) el.textContent = text;
+  }
+
+  function ensureGisLoaded(cb){
+    if(window.google && window.google.accounts && window.google.accounts.oauth2){ cb(); return; }
+    let tries = 0;
+    const iv = setInterval(() => {
+      tries++;
+      if(window.google && window.google.accounts && window.google.accounts.oauth2){
+        clearInterval(iv);
+        cb();
+      } else if(tries > 40){
+        clearInterval(iv);
+        setDriveStatus('Não foi possível carregar a biblioteca do Google. Verifique sua conexão e recarregue a página.');
+      }
+    }, 250);
+  }
+
+  function initDriveTokenClient(){
+    if(!driveClientId) return;
+    ensureGisLoaded(() => {
+      driveTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: driveClientId,
+        scope: DRIVE_SCOPE,
+        callback: handleDriveTokenResponse
+      });
+    });
+  }
+
+  function handleDriveTokenResponse(resp){
+    if(resp.error){
+      setDriveStatus('Não foi possível conectar: ' + resp.error + '. Tente novamente.');
+      driveAccessToken = null;
+      renderDriveUI();
+      return;
+    }
+    driveAccessToken = resp.access_token;
+    setDriveStatus('Conectado. Procurando seu backup no Drive...');
+    renderDriveUI();
+    driveFindOrPrepareFile();
+  }
+
+  async function driveApiFetch(url, options){
+    options = options || {};
+    options.headers = Object.assign({}, options.headers, {
+      'Authorization': 'Bearer ' + driveAccessToken
+    });
+    const res = await fetch(url, options);
+    if(res.status === 401){
+      driveAccessToken = null;
+      renderDriveUI();
+      setDriveStatus('Sua sessão do Drive expirou. Clique em "Conectar ao Google Drive" de novo.');
+      throw new Error('token expirado');
+    }
+    return res;
+  }
+
+  async function driveFindOrPrepareFile(){
+    try{
+      const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+      const res = await driveApiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)`);
+      const data = await res.json();
+      if(data.files && data.files.length){
+        driveFileId = data.files[0].id;
+        setDriveStatus('Conectado. Backup encontrado no Drive (modificado em ' + new Date(data.files[0].modifiedTime).toLocaleString('pt-BR') + '). Use "Baixar do Drive" pra trazer esses dados, ou "Enviar para o Drive" pra subir os dados daqui.');
+      } else {
+        driveFileId = null;
+        setDriveStatus('Conectado. Nenhum backup encontrado ainda no Drive — clique em "Enviar para o Drive" pra criar o primeiro.');
+      }
+    }catch(err){
+      console.error(err);
+    }
+  }
+
+  async function driveCreateFile(content){
+    const metadata = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
+    const boundary = 'ledgerbound' + Date.now();
+    const body =
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n` +
+      `--${boundary}--`;
+    const res = await driveApiFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+      body
+    });
+    const data = await res.json();
+    return data.id;
+  }
+
+  async function driveUpdateFile(fileId, content){
+    await driveApiFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: content
+    });
+  }
+
+  async function drivePush(silent){
+    if(!driveAccessToken){ return; }
+    try{
+      const payload = JSON.stringify({
+        app: 'financas-casa',
+        exportedAt: new Date().toISOString(),
+        transactions,
+        categories
+      }, null, 2);
+
+      if(driveFileId){
+        await driveUpdateFile(driveFileId, payload);
+      } else {
+        driveFileId = await driveCreateFile(payload);
+      }
+      setDriveStatus('Sincronizado com o Drive às ' + new Date().toLocaleTimeString('pt-BR') + '.');
+    }catch(err){
+      console.error(err);
+      if(!silent) setDriveStatus('Não foi possível enviar para o Drive agora. Tente de novo em instantes.');
+    }
+  }
+
+  async function drivePull(){
+    if(!driveAccessToken) return;
+    if(!driveFileId){
+      alert('Ainda não existe nenhum backup no Drive pra baixar. Use "Enviar para o Drive" primeiro.');
+      return;
+    }
+    try{
+      const res = await driveApiFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+      const data = await res.json();
+      if(!Array.isArray(data.transactions) || !Array.isArray(data.categories)){
+        throw new Error('formato inválido');
+      }
+      const confirmMsg = `O backup do Drive tem ${data.transactions.length} lançamento(s), exportado em ${data.exportedAt ? new Date(data.exportedAt).toLocaleString('pt-BR') : 'data desconhecida'}.\n\nIsso vai SUBSTITUIR os dados salvos neste navegador. Continuar?`;
+      if(!confirm(confirmMsg)) return;
+
+      transactions = data.transactions;
+      categories = data.categories;
+      saveData();
+      saveCategories();
+      renderCategorySelect();
+      renderCategoryManager();
+      render();
+      setDriveStatus('Dados baixados do Drive com sucesso.');
+    }catch(err){
+      console.error(err);
+      setDriveStatus('Não foi possível baixar o backup do Drive agora.');
+    }
+  }
+
+  function scheduleAutoPush(){
+    if(!driveAutoSync || !driveAccessToken) return;
+    clearTimeout(drivePushTimer);
+    drivePushTimer = setTimeout(() => drivePush(true), 1200);
+  }
+
+  document.getElementById('saveClientId').addEventListener('click', function(){
+    const val = document.getElementById('driveClientIdInput').value.trim();
+    if(!val){ return; }
+    driveClientId = val;
+    localStorage.setItem(DRIVE_CLIENT_ID_KEY, driveClientId);
+    renderDriveUI();
+    initDriveTokenClient();
+  });
+
+  document.getElementById('editClientId').addEventListener('click', function(){
+    driveClientId = '';
+    driveAccessToken = null;
+    driveFileId = null;
+    localStorage.removeItem(DRIVE_CLIENT_ID_KEY);
+    document.getElementById('driveClientIdInput').value = '';
+    renderDriveUI();
+  });
+
+  document.getElementById('driveConnectBtn').addEventListener('click', function(){
+    if(!driveTokenClient){ initDriveTokenClient(); }
+    setTimeout(() => {
+      if(driveTokenClient){
+        driveTokenClient.requestAccessToken({ prompt: driveAccessToken ? '' : 'consent' });
+      }
+    }, 300);
+  });
+
+  document.getElementById('drivePushBtn').addEventListener('click', () => drivePush(false));
+  document.getElementById('drivePullBtn').addEventListener('click', () => drivePull());
+
+  document.getElementById('driveDisconnectBtn').addEventListener('click', function(){
+    if(driveAccessToken && window.google && google.accounts && google.accounts.oauth2){
+      google.accounts.oauth2.revoke(driveAccessToken, () => {});
+    }
+    driveAccessToken = null;
+    driveFileId = null;
+    renderDriveUI();
+    setDriveStatus('Desconectado.');
+  });
+
+  document.getElementById('autoSyncToggle').addEventListener('change', function(){
+    driveAutoSync = this.checked;
+    localStorage.setItem(DRIVE_AUTO_SYNC_KEY, driveAutoSync ? 'true' : 'false');
+    if(driveAutoSync) drivePush(true);
+  });
+
+  if(driveClientId){
+    document.getElementById('driveClientIdInput').value = driveClientId;
+    initDriveTokenClient();
+  }
+  renderDriveUI();
+  // ===================== /Google Drive sync =====================
 
   // Default date field to today
   document.getElementById('data').valueAsDate = new Date();
