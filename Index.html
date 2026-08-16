@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Livro-Caixa — Finanças da Casa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #f1e8d6;
+    --paper-deep: #e9dcc0;
+    --rule: #c9b98f;
+    --ink: #23293a;
+    --ink-soft: #63687a;
+    --card: #fbf7ec;
+    --green: #2f6f4f;
+    --green-soft: #e2ede4;
+    --red: #b23a48;
+    --red-soft: #f3e3e2;
+    --gold: #c9932e;
+    --shadow: 0 1px 0 rgba(35,41,58,0.06), 0 8px 24px -12px rgba(35,41,58,0.25);
+    --radius: 14px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0; padding:0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body{
+    background-image:
+      linear-gradient(90deg, transparent 0, transparent 46px, rgba(178,58,72,0.35) 46px, rgba(178,58,72,0.35) 47px, transparent 47px),
+      repeating-linear-gradient(180deg, transparent, transparent 27px, var(--rule) 28px);
+    background-attachment: local;
+    min-height: 100vh;
+    padding-bottom: 96px;
+  }
+
+  .wrap{
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 28px 20px 40px;
+  }
+
+  header.hero{
+    padding: 8px 4px 28px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 24px;
+  }
+
+  .eyebrow{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 0 0 6px;
+  }
+
+  h1{
+    font-family: 'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: clamp(28px, 5vw, 42px);
+    margin: 0 0 18px;
+    line-height: 1.05;
+  }
+
+  .month-switch{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .month-switch button{
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--rule);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items:center; justify-content:center;
+    transition: background .15s ease, transform .1s ease;
+  }
+  .month-switch button:hover{ background: var(--paper-deep); }
+  .month-switch button:active{ transform: scale(0.94); }
+
+  .month-label{
+    font-size: 15px;
+    font-weight: 500;
+    text-transform: capitalize;
+    min-width: 150px;
+  }
+
+  .summary-row{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .sum-card{
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+
+  .sum-card .label{
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .sum-card .value{
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: clamp(18px, 3.2vw, 24px);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .sum-card.saldo .value{ color: var(--ink); }
+  .sum-card .sub{
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .sum-card.receitas .value{ color: var(--green); }
+  .sum-card.despesas .value{ color: var(--red); }
+
+  .layout{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .panel{
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+
+  .panel h2{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin: 0 0 16px;
+  }
+
+  form{ display: flex; flex-direction: column; gap: 12px; }
+
+  .type-toggle{
+    display: flex;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .type-toggle label{
+    flex: 1;
+    text-align: center;
+    padding: 9px 0;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--ink-soft);
+    background: var(--paper);
+    transition: background .15s ease, color .15s ease;
+  }
+  .type-toggle input{ display:none; }
+  .type-toggle input:checked + label.tl-receita{ background: var(--green-soft); color: var(--green); }
+  .type-toggle input:checked + label.tl-despesa{ background: var(--red-soft); color: var(--red); }
+
+  .field label{
+    display:block;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+
+  .field input, .field select{
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--rule);
+    background: #fff;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .field input:focus, .field select:focus{
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  .row2{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .checkbox-field{
+    flex-direction: row;
+    align-items: center;
+  }
+  .checkbox-label{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .checkbox-label input[type="checkbox"]{
+    width: 17px; height: 17px;
+    accent-color: var(--ink);
+    cursor: pointer;
+  }
+
+  .field-hint{
+    display: block;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  .parcela-preview{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gold);
+    padding: 10px 0 0;
+  }
+
+  .parcela-note{
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin: -4px 0 0;
+  }
+
+  .tag-parcela{
+    background: var(--red-soft);
+    color: var(--red);
+    font-weight: 600;
+  }
+
+  .label-row{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .label-row label{ margin-bottom: 0; }
+
+  .link-btn{
+    border: none;
+    background: transparent;
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .link-btn:hover{ color: var(--red); }
+
+  .cat-list{ list-style: none; margin: 0; padding: 0; }
+  .cat-row{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .cat-row:last-child{ border-bottom: none; }
+  .cat-row .cat-info .cat-nome{ font-size: 14px; font-weight: 500; }
+  .cat-row .cat-info .cat-desc{ font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+
+  .btn-add{
+    margin-top: 4px;
+    padding: 11px 0;
+    border: none;
+    border-radius: 9px;
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: opacity .15s ease;
+  }
+  .btn-add:hover{ opacity: 0.88; }
+
+  .ledger-list{ list-style: none; margin: 0; padding: 0; }
+
+  .ledger-row{
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .ledger-row:last-child{ border-bottom: none; }
+
+  .ledger-main .desc{ font-size: 14px; font-weight: 500; }
+  .ledger-main .meta{
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .tag{
+    display:inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    background: var(--paper-deep);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+
+  .ledger-amount{
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+    font-size: 14px;
+  }
+  .ledger-amount.receita{ color: var(--green); }
+  .ledger-amount.despesa{ color: var(--red); }
+
+  .del-btn{
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 16px;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+  }
+  .del-btn:hover{ background: var(--red-soft); color: var(--red); }
+
+  .empty-state{
+    text-align: center;
+    padding: 30px 10px;
+    color: var(--ink-soft);
+    font-size: 14px;
+  }
+
+  .breakdown-row{ margin-bottom: 12px; }
+  .breakdown-row .bd-top{
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 5px;
+  }
+  .bd-top .amt{ font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+  .bar-track{
+    height: 8px;
+    background: var(--paper-deep);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .bar-fill{
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--red));
+    border-radius: 100px;
+  }
+  .bar-fill.income{
+    background: linear-gradient(90deg, #8fbf9f, var(--green));
+  }
+
+  /* Mobile FAB + sheet */
+  .fab{
+    display: none;
+  }
+
+  @media (max-width: 760px){
+    .summary-row{ grid-template-columns: 1fr; }
+    .layout{ grid-template-columns: 1fr; }
+    .row2{ grid-template-columns: 1fr; }
+
+    #form-panel{
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      max-height: 82vh;
+      overflow-y: auto;
+      border-radius: 20px 20px 0 0;
+      transform: translateY(105%);
+      transition: transform .25s ease;
+      z-index: 40;
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.25);
+    }
+    #form-panel.open{ transform: translateY(0); }
+
+    .sheet-backdrop{
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(35,41,58,0.4);
+      z-index: 30;
+    }
+    .sheet-backdrop.open{ display: block; }
+
+    .sheet-handle{
+      width: 40px; height: 4px;
+      background: var(--rule);
+      border-radius: 100px;
+      margin: 0 auto 14px;
+    }
+    .sheet-close{
+      position: absolute;
+      top: 14px; right: 16px;
+      border: none;
+      background: transparent;
+      font-size: 20px;
+      color: var(--ink-soft);
+      cursor: pointer;
+    }
+
+    .fab{
+      display: flex;
+      align-items: center; justify-content: center;
+      position: fixed;
+      right: 20px; bottom: 22px;
+      width: 58px; height: 58px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--paper);
+      font-size: 28px;
+      border: none;
+      box-shadow: 0 10px 24px -6px rgba(35,41,58,0.5);
+      cursor: pointer;
+      z-index: 20;
+    }
+  }
+
+  @media (min-width: 761px){
+    .layout{ grid-template-columns: 320px 1fr; align-items: start; }
+    #form-panel{ position: sticky; top: 20px; }
+    .sheet-handle, .sheet-close, .sheet-backdrop{ display: none; }
+  }
+
+  footer{
+    max-width: 960px;
+    margin: 32px auto 0;
+    padding: 0 20px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Livro-caixa doméstico</p>
+    <h1>Finanças da casa</h1>
+    <div class="month-switch">
+      <button id="prevMonth" aria-label="Mês anterior">‹</button>
+      <span class="month-label" id="monthLabel">—</span>
+      <button id="nextMonth" aria-label="Próximo mês">›</button>
+    </div>
+  </header>
+
+  <section class="summary-row">
+    <div class="sum-card saldo">
+      <div class="label">Saldo acumulado</div>
+      <div class="value" id="valSaldo">R$ 0,00</div>
+      <div class="sub" id="saldoSub"></div>
+    </div>
+    <div class="sum-card receitas">
+      <div class="label">Receitas</div>
+      <div class="value" id="valReceitas">R$ 0,00</div>
+    </div>
+    <div class="sum-card despesas">
+      <div class="label">Despesas</div>
+      <div class="value" id="valDespesas">R$ 0,00</div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <div class="panel" id="form-panel">
+      <button class="sheet-close" id="sheetClose" aria-label="Fechar">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>Novo lançamento</h2>
+      <form id="txForm">
+        <div class="type-toggle">
+          <input type="radio" name="tipo" id="tipoReceita" value="receita">
+          <label class="tl-receita" for="tipoReceita">Receita</label>
+          <input type="radio" name="tipo" id="tipoDespesa" value="despesa" checked>
+          <label class="tl-despesa" for="tipoDespesa">Despesa</label>
+        </div>
+
+        <div class="field">
+          <label for="desc">Descrição</label>
+          <input type="text" id="desc" placeholder="Ex.: Supermercado, Salário..." required>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="valor">Valor (R$)</label>
+            <input type="number" id="valor" min="0.01" step="0.01" placeholder="0,00" required>
+            <span class="field-hint" id="valorHint"></span>
+          </div>
+          <div class="field">
+            <label for="data">Data da 1ª parcela</label>
+            <input type="date" id="data" required>
+          </div>
+        </div>
+
+        <div class="field checkbox-field" id="parcelaToggleWrap">
+          <label class="checkbox-label">
+            <input type="checkbox" id="isParcelado">
+            <span id="parcelaLabelText">Compra parcelada</span>
+          </label>
+        </div>
+
+        <div class="row2" id="parcelaFields" style="display:none;">
+          <div class="field">
+            <label for="numParcelas">Número de parcelas</label>
+            <input type="number" id="numParcelas" min="2" max="48" step="1" value="2">
+          </div>
+          <div class="field">
+            <label>Valor de cada parcela</label>
+            <div class="parcela-preview" id="parcelaPreview">—</div>
+          </div>
+        </div>
+        <p class="parcela-note" id="parcelaNote" style="display:none;">As parcelas serão lançadas automaticamente nos meses seguintes.</p>
+
+        <div class="field">
+          <div class="label-row">
+            <label for="categoria">Categoria</label>
+            <button type="button" class="link-btn" id="openCatManager">gerenciar categorias</button>
+          </div>
+          <select id="categoria"></select>
+        </div>
+
+        <button type="submit" class="btn-add">Adicionar lançamento</button>
+      </form>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:20px;">
+        <h2>Lançamentos do mês</h2>
+        <ul class="ledger-list" id="ledgerList"></ul>
+        <div class="empty-state" id="emptyState" style="display:none;">
+          Nenhum lançamento neste mês. Toque em “Adicionar lançamento” para começar.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Para onde foi o dinheiro</h2>
+        <div id="breakdown"></div>
+        <div class="empty-state" id="emptyBreakdown" style="display:none;">
+          Sem despesas registradas neste mês ainda.
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <h2>De onde veio o dinheiro</h2>
+        <div id="breakdownReceitas"></div>
+        <div class="empty-state" id="emptyBreakdownReceitas" style="display:none;">
+          Sem receitas registradas neste mês ainda.
+        </div>
+      </div>
+
+      <div class="panel" id="catManagerPanel" style="display:none; margin-top:20px;">
+        <h2>Categorias cadastradas</h2>
+        <form id="catForm" style="display:flex; gap:10px; align-items:end; margin-bottom:16px;">
+          <div class="field" style="flex:1;">
+            <label for="catNome">Nome</label>
+            <input type="text" id="catNome" placeholder="Ex.: Pets" required>
+          </div>
+          <button type="submit" class="btn-add" style="width:auto; padding:11px 18px; white-space:nowrap;">Adicionar</button>
+        </form>
+        <ul class="cat-list" id="catList"></ul>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="sheet-backdrop" id="backdrop"></div>
+<button class="fab" id="fabAdd" aria-label="Adicionar lançamento">+</button>
+
+<footer>
+  Os dados ficam salvos apenas neste navegador (localStorage) — não são enviados para nenhum servidor.
+</footer>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'household-ledger-transactions-v1';
+  const CAT_STORAGE_KEY = 'household-ledger-categories-v1';
+  const monthNames = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+  const DEFAULT_CATEGORIES = [
+    'Moradia', 'Alimentação', 'Transporte', 'Saúde', 'Lazer',
+    'Educação', 'Contas fixas', 'Salário', 'Outros'
+  ];
+
+  let transactions = loadData();
+  let categories = loadCategories();
+  let currentDate = new Date();
+  currentDate.setDate(1);
+
+  function loadCategories(){
+    try{
+      const raw = localStorage.getItem(CAT_STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+      const seeded = DEFAULT_CATEGORIES.map((nome,i) => ({ id: 'c' + i, nome }));
+      localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify(seeded));
+      return seeded;
+    }catch(e){
+      console.error('Erro ao ler categorias:', e);
+      return DEFAULT_CATEGORIES.map((nome,i) => ({ id: 'c' + i, nome }));
+    }
+  }
+
+  function saveCategories(){
+    try{
+      localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify(categories));
+    }catch(e){
+      console.error('Erro ao salvar categorias:', e);
+    }
+  }
+
+  function renderCategorySelect(){
+    const select = document.getElementById('categoria');
+    const prevValue = select.value;
+    select.innerHTML = '';
+    categories.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.nome;
+      opt.textContent = c.nome;
+      select.appendChild(opt);
+    });
+    if(categories.some(c => c.nome === prevValue)){
+      select.value = prevValue;
+    }
+  }
+
+  function renderCategoryManager(){
+    const list = document.getElementById('catList');
+    list.innerHTML = '';
+    categories.forEach(c => {
+      const li = document.createElement('li');
+      li.className = 'cat-row';
+      li.innerHTML = `
+        <div class="cat-info">
+          <div class="cat-nome">${escapeHtml(c.nome)}</div>
+        </div>
+        <button type="button" class="del-btn" data-catid="${c.id}" aria-label="Excluir categoria">🗑</button>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  function loadData(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){
+      console.error('Erro ao ler dados salvos:', e);
+      return [];
+    }
+  }
+
+  function saveData(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    }catch(e){
+      console.error('Erro ao salvar dados:', e);
+      alert('Não foi possível salvar os dados neste navegador.');
+    }
+  }
+
+  function fmtBRL(n){
+    return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+  }
+
+  function monthKey(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  function txMonthKey(tx){
+    return tx.data.slice(0,7);
+  }
+
+  function cumulativeBalanceUpTo(mKey){
+    let total = 0;
+    transactions.forEach(t => {
+      if(txMonthKey(t) <= mKey){
+        total += (t.tipo === 'receita' ? t.valor : -t.valor);
+      }
+    });
+    return total;
+  }
+
+  function render(){
+    const label = document.getElementById('monthLabel');
+    label.textContent = monthNames[currentDate.getMonth()] + ' de ' + currentDate.getFullYear();
+
+    const mKey = monthKey(currentDate);
+    const monthTx = transactions
+      .filter(t => txMonthKey(t) === mKey)
+      .sort((a,b) => b.data.localeCompare(a.data));
+
+    let receitas = 0, despesas = 0;
+    monthTx.forEach(t => {
+      if(t.tipo === 'receita') receitas += t.valor;
+      else despesas += t.valor;
+    });
+    const netMes = receitas - despesas;
+    const saldoAcumulado = cumulativeBalanceUpTo(mKey);
+    const saldoAnterior = saldoAcumulado - netMes;
+
+    document.getElementById('valReceitas').textContent = fmtBRL(receitas);
+    document.getElementById('valDespesas').textContent = fmtBRL(despesas);
+    const saldoEl = document.getElementById('valSaldo');
+    saldoEl.textContent = fmtBRL(saldoAcumulado);
+    saldoEl.style.color = saldoAcumulado < 0 ? 'var(--red)' : 'var(--ink)';
+
+    const saldoSubEl = document.getElementById('saldoSub');
+    saldoSubEl.textContent = 'vindo do mês anterior: ' + fmtBRL(saldoAnterior);
+
+    const list = document.getElementById('ledgerList');
+    list.innerHTML = '';
+    document.getElementById('emptyState').style.display = monthTx.length ? 'none' : 'block';
+
+    monthTx.forEach(t => {
+      const li = document.createElement('li');
+      li.className = 'ledger-row';
+      const dataFmt = new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+      const parcelaTag = t.parcelaTotal ? `<span class="tag tag-parcela">${t.parcelaAtual}/${t.parcelaTotal}</span>` : '';
+      li.innerHTML = `
+        <div class="ledger-main">
+          <div class="desc">${escapeHtml(t.descricao)}</div>
+          <div class="meta"><span class="tag">${escapeHtml(t.categoria)}</span>${parcelaTag}<span>${dataFmt}</span></div>
+        </div>
+        <div class="ledger-amount ${t.tipo}">${t.tipo === 'despesa' ? '-' : '+'} ${fmtBRL(t.valor)}</div>
+        <button class="del-btn" data-id="${t.id}" aria-label="Excluir lançamento">🗑</button>
+      `;
+      list.appendChild(li);
+    });
+
+    // spending breakdown (despesas only) — descrição - categoria
+    const despesasList = monthTx
+      .filter(t => t.tipo === 'despesa')
+      .sort((a,b) => b.valor - a.valor);
+    const bdEl = document.getElementById('breakdown');
+    bdEl.innerHTML = '';
+    document.getElementById('emptyBreakdown').style.display = despesasList.length ? 'none' : 'block';
+
+    const maxVal = despesasList.length ? despesasList[0].valor : 1;
+    despesasList.forEach(t => {
+      const pct = Math.max(4, Math.round((t.valor / maxVal) * 100));
+      const label = `${t.descricao} - ${t.categoria}`;
+      const row = document.createElement('div');
+      row.className = 'breakdown-row';
+      row.innerHTML = `
+        <div class="bd-top"><span>${escapeHtml(label)}</span><span class="amt">${fmtBRL(t.valor)}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      `;
+      bdEl.appendChild(row);
+    });
+
+    // income breakdown (receitas only) — descrição - categoria
+    const receitasList = monthTx
+      .filter(t => t.tipo === 'receita')
+      .sort((a,b) => b.valor - a.valor);
+    const bdRecEl = document.getElementById('breakdownReceitas');
+    bdRecEl.innerHTML = '';
+    document.getElementById('emptyBreakdownReceitas').style.display = receitasList.length ? 'none' : 'block';
+
+    const maxValRec = receitasList.length ? receitasList[0].valor : 1;
+    receitasList.forEach(t => {
+      const pct = Math.max(4, Math.round((t.valor / maxValRec) * 100));
+      const label = `${t.descricao} - ${t.categoria}`;
+      const row = document.createElement('div');
+      row.className = 'breakdown-row';
+      row.innerHTML = `
+        <div class="bd-top"><span>${escapeHtml(label)}</span><span class="amt">${fmtBRL(t.valor)}</span></div>
+        <div class="bar-track"><div class="bar-fill income" style="width:${pct}%"></div></div>
+      `;
+      bdRecEl.appendChild(row);
+    });
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // Month navigation
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    render();
+  });
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    render();
+  });
+
+  // --- Parcelamento helpers ---
+  function addMonthsClamped(dateStr, monthsToAdd){
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const target = new Date(y, (m - 1) + monthsToAdd, 1);
+    const daysInTarget = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(d, daysInTarget));
+    return target.getFullYear() + '-' + String(target.getMonth()+1).padStart(2,'0') + '-' + String(target.getDate()).padStart(2,'0');
+  }
+
+  function splitInstallments(total, n){
+    const cents = Math.round(total * 100);
+    const base = Math.floor(cents / n);
+    const remainder = cents - base * n;
+    const values = [];
+    for(let i = 0; i < n; i++){
+      // spread the leftover cents across the first installments
+      const v = base + (i < remainder ? 1 : 0);
+      values.push(v / 100);
+    }
+    return values;
+  }
+
+  function genGroupId(){
+    return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  }
+
+  function updateParcelaPreview(){
+    const checked = document.getElementById('isParcelado').checked;
+    const n = parseInt(document.getElementById('numParcelas').value, 10) || 0;
+    const total = parseFloat(document.getElementById('valor').value) || 0;
+    const preview = document.getElementById('parcelaPreview');
+    const hint = document.getElementById('valorHint');
+    const isDespesa = document.getElementById('tipoDespesa').checked;
+
+    if(checked && n >= 2 && total > 0){
+      const values = splitInstallments(total, n);
+      preview.textContent = n + 'x de ' + fmtBRL(values[0]) + (values[0] !== values[values.length-1] ? ' (aprox.)' : '');
+      hint.textContent = isDespesa ? 'Valor total da compra' : 'Valor total da venda/recebimento';
+    } else {
+      preview.textContent = '—';
+      hint.textContent = '';
+    }
+  }
+
+  function updateParcelaLabels(){
+    const isDespesa = document.getElementById('tipoDespesa').checked;
+    document.getElementById('parcelaLabelText').textContent = isDespesa ? 'Compra parcelada' : 'Recebimento parcelado (venda a prazo)';
+  }
+
+  document.getElementById('isParcelado').addEventListener('change', function(){
+    document.getElementById('parcelaFields').style.display = this.checked ? 'grid' : 'none';
+    document.getElementById('parcelaNote').style.display = this.checked ? 'block' : 'none';
+    updateParcelaPreview();
+  });
+  document.getElementById('numParcelas').addEventListener('input', updateParcelaPreview);
+  document.getElementById('valor').addEventListener('input', updateParcelaPreview);
+  document.querySelectorAll('input[name="tipo"]').forEach(r => {
+    r.addEventListener('change', function(){
+      updateParcelaLabels();
+      updateParcelaPreview();
+    });
+  });
+
+  // Form submit
+  document.getElementById('txForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const tipo = document.querySelector('input[name="tipo"]:checked').value;
+    const descricao = document.getElementById('desc').value.trim();
+    const valor = parseFloat(document.getElementById('valor').value);
+    const data = document.getElementById('data').value;
+    const categoria = document.getElementById('categoria').value;
+    const isParcelado = document.getElementById('isParcelado').checked;
+    const numParcelas = parseInt(document.getElementById('numParcelas').value, 10) || 0;
+
+    if(!descricao || !valor || !data){ return; }
+
+    if(isParcelado && numParcelas >= 2){
+      const values = splitInstallments(valor, numParcelas);
+      const grupoId = genGroupId();
+      for(let i = 0; i < numParcelas; i++){
+        transactions.push({
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2,6) + i,
+          tipo, descricao, valor: values[i],
+          data: addMonthsClamped(data, i),
+          categoria,
+          grupoId, parcelaAtual: i + 1, parcelaTotal: numParcelas
+        });
+      }
+    } else {
+      transactions.push({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+        tipo, descricao, valor, data, categoria
+      });
+    }
+    saveData();
+
+    // jump view to the month of the new entry (1ª parcela)
+    const [y,m] = data.split('-').map(Number);
+    currentDate = new Date(y, m-1, 1);
+
+    this.reset();
+    document.getElementById('tipoDespesa').checked = true;
+    document.getElementById('parcelaFields').style.display = 'none';
+    document.getElementById('parcelaNote').style.display = 'none';
+    document.getElementById('data').valueAsDate = new Date();
+    updateParcelaLabels();
+    updateParcelaPreview();
+    closeSheet();
+    render();
+  });
+
+  // Delete (parcela única ou série inteira)
+  document.getElementById('ledgerList').addEventListener('click', function(e){
+    const btn = e.target.closest('.del-btn');
+    if(!btn) return;
+    const id = btn.getAttribute('data-id');
+    const tx = transactions.find(t => t.id === id);
+    if(!tx) return;
+
+    if(tx.grupoId){
+      const excluirTudo = confirm(
+        'Esta é a parcela ' + tx.parcelaAtual + ' de ' + tx.parcelaTotal + '.\n\n' +
+        'Clique OK para excluir TODAS as parcelas desta compra, ou Cancelar para excluir apenas esta parcela.'
+      );
+      if(excluirTudo){
+        transactions = transactions.filter(t => t.grupoId !== tx.grupoId);
+      } else {
+        transactions = transactions.filter(t => t.id !== id);
+      }
+    } else {
+      transactions = transactions.filter(t => t.id !== id);
+    }
+    saveData();
+    render();
+  });
+
+  // Mobile sheet handling
+  const formPanel = document.getElementById('form-panel');
+  const backdrop = document.getElementById('backdrop');
+  function openSheet(){
+    formPanel.classList.add('open');
+    backdrop.classList.add('open');
+  }
+  function closeSheet(){
+    formPanel.classList.remove('open');
+    backdrop.classList.remove('open');
+  }
+  document.getElementById('fabAdd').addEventListener('click', openSheet);
+  document.getElementById('sheetClose').addEventListener('click', closeSheet);
+  backdrop.addEventListener('click', closeSheet);
+
+  // Category manager toggle
+  document.getElementById('openCatManager').addEventListener('click', function(){
+    const panel = document.getElementById('catManagerPanel');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if(!isOpen) panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  });
+
+  // Add category
+  document.getElementById('catForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const nomeInput = document.getElementById('catNome');
+    const nome = nomeInput.value.trim();
+    if(!nome) return;
+
+    if(categories.some(c => c.nome.toLowerCase() === nome.toLowerCase())){
+      alert('Já existe uma categoria com esse nome.');
+      return;
+    }
+
+    categories.push({ id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,5), nome });
+    saveCategories();
+    renderCategorySelect();
+    renderCategoryManager();
+    this.reset();
+    document.getElementById('categoria').value = nome;
+  });
+
+  // Delete category
+  document.getElementById('catList').addEventListener('click', function(e){
+    const btn = e.target.closest('.del-btn');
+    if(!btn) return;
+    const catId = btn.getAttribute('data-catid');
+    const cat = categories.find(c => c.id === catId);
+    if(!cat) return;
+
+    const emUso = transactions.some(t => t.categoria === cat.nome);
+    const msg = emUso
+      ? `A categoria "${cat.nome}" está sendo usada em lançamentos existentes. Eles vão manter o nome da categoria, mas ela sairá da lista de opções. Excluir mesmo assim?`
+      : `Excluir a categoria "${cat.nome}"?`;
+    if(!confirm(msg)) return;
+
+    categories = categories.filter(c => c.id !== catId);
+    saveCategories();
+    renderCategorySelect();
+    renderCategoryManager();
+    render();
+  });
+
+  // Default date field to today
+  document.getElementById('data').valueAsDate = new Date();
+  updateParcelaLabels();
+
+  renderCategorySelect();
+  renderCategoryManager();
+  render();
+})();
+</script>
+
+</body>
+</html>
