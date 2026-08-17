@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Livro-Caixa — Finanças da Casa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">Livro-caixa doméstico</p>
+    <h1>Finanças da casa</h1>
+    <div class="month-switch">
+      <button id="prevMonth" aria-label="Mês anterior">‹</button>
+      <span class="month-label" id="monthLabel">—</span>
+      <button id="nextMonth" aria-label="Próximo mês">›</button>
+    </div>
+  </header>
+
+  <section class="summary-row">
+    <div class="sum-card saldo">
+      <div class="label">Saldo acumulado</div>
+      <div class="value" id="valSaldo">R$ 0,00</div>
+      <div class="sub" id="saldoSub"></div>
+    </div>
+    <div class="sum-card receitas">
+      <div class="label">Receitas</div>
+      <div class="value" id="valReceitas">R$ 0,00</div>
+    </div>
+    <div class="sum-card despesas">
+      <div class="label">Despesas</div>
+      <div class="value" id="valDespesas">R$ 0,00</div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <div class="panel" id="form-panel">
+      <button class="sheet-close" id="sheetClose" aria-label="Fechar">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>Novo lançamento</h2>
+      <form id="txForm">
+        <div class="type-toggle">
+          <input type="radio" name="tipo" id="tipoReceita" value="receita">
+          <label class="tl-receita" for="tipoReceita">Receita</label>
+          <input type="radio" name="tipo" id="tipoDespesa" value="despesa" checked>
+          <label class="tl-despesa" for="tipoDespesa">Despesa</label>
+        </div>
+
+        <div class="field">
+          <label for="desc">Descrição</label>
+          <input type="text" id="desc" placeholder="Ex.: Supermercado, Salário..." required>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="valor">Valor (R$)</label>
+            <input type="number" id="valor" min="0.01" step="0.01" placeholder="0,00" required>
+            <span class="field-hint" id="valorHint"></span>
+          </div>
+          <div class="field">
+            <label for="data">Data da 1ª parcela</label>
+            <input type="date" id="data" required>
+          </div>
+        </div>
+
+        <div class="field checkbox-field" id="parcelaToggleWrap">
+          <label class="checkbox-label">
+            <input type="checkbox" id="isParcelado">
+            <span id="parcelaLabelText">Compra parcelada</span>
+          </label>
+        </div>
+
+        <div class="row2" id="parcelaFields" style="display:none;">
+          <div class="field">
+            <label for="numParcelas">Número de parcelas</label>
+            <input type="number" id="numParcelas" min="2" max="48" step="1" value="2">
+          </div>
+          <div class="field">
+            <label>Valor de cada parcela</label>
+            <div class="parcela-preview" id="parcelaPreview">—</div>
+          </div>
+        </div>
+        <p class="parcela-note" id="parcelaNote" style="display:none;">As parcelas serão lançadas automaticamente nos meses seguintes.</p>
+
+        <div class="field">
+          <div class="label-row">
+            <label for="categoria">Categoria</label>
+            <button type="button" class="link-btn" id="openCatManager">gerenciar categorias</button>
+          </div>
+          <select id="categoria"></select>
+        </div>
+
+        <button type="submit" class="btn-add">Adicionar lançamento</button>
+      </form>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:20px;">
+        <h2>Lançamentos do mês</h2>
+        <ul class="ledger-list" id="ledgerList"></ul>
+        <div class="empty-state" id="emptyState" style="display:none;">
+          Nenhum lançamento neste mês. Toque em “Adicionar lançamento” para começar.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Para onde foi o dinheiro</h2>
+        <div id="breakdown"></div>
+        <div class="empty-state" id="emptyBreakdown" style="display:none;">
+          Sem despesas registradas neste mês ainda.
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <h2>De onde veio o dinheiro</h2>
+        <div id="breakdownReceitas"></div>
+        <div class="empty-state" id="emptyBreakdownReceitas" style="display:none;">
+          Sem receitas registradas neste mês ainda.
+        </div>
+      </div>
+
+      <div class="panel" id="catManagerPanel" style="display:none; margin-top:20px;">
+        <h2>Categorias cadastradas</h2>
+        <form id="catForm" style="display:flex; gap:10px; align-items:end; margin-bottom:16px;">
+          <div class="field" style="flex:1;">
+            <label for="catNome">Nome</label>
+            <input type="text" id="catNome" placeholder="Ex.: Pets" required>
+          </div>
+          <button type="submit" class="btn-add" style="width:auto; padding:11px 18px; white-space:nowrap;">Adicionar</button>
+        </form>
+        <ul class="cat-list" id="catList"></ul>
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <h2>Backup dos seus dados</h2>
+        <p class="backup-text">
+          Tudo fica salvo só neste navegador. Se limpar o cache, trocar de celular ou desinstalar o app, os lançamentos somem. Exporte um arquivo de backup de vez em quando e guarde em algum lugar seguro (Google Drive, e-mail, WhatsApp pra você mesmo) — depois é só importar de volta se precisar.
+        </p>
+        <div class="backup-actions">
+          <button type="button" class="btn-add btn-inline" id="exportBackup">Exportar backup (.json)</button>
+          <label class="btn-add btn-inline btn-secondary" for="importBackup">
+            Importar backup
+          </label>
+          <input type="file" id="importBackup" accept="application/json" style="display:none;">
+        </div>
+        <p class="field-hint" id="backupStatus"></p>
+      </div>
+
+      <div class="panel" style="margin-top:20px;">
+        <h2>Google Drive</h2>
+
+        <div id="driveSetup">
+          <p class="backup-text">
+            Conecte sua conta do Google Drive pra salvar os lançamentos automaticamente na nuvem, sem precisar exportar/importar manualmente. Isso exige um Client ID do Google Cloud configurado pra esta URL — veja o passo a passo que te expliquei.
+          </p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <input type="text" id="driveClientIdInput" placeholder="Cole aqui seu Client ID (...apps.googleusercontent.com)" style="flex:1; min-width:220px; padding:10px 12px; border-radius:9px; border:1px solid var(--rule); font-size:16px;">
+            <button type="button" class="btn-add btn-inline" id="saveClientId">Salvar</button>
+          </div>
+        </div>
+
+        <div id="driveConnected" style="display:none;">
+          <p class="backup-text" id="driveStatusText">Não conectado.</p>
+          <div class="backup-actions">
+            <button type="button" class="btn-add btn-inline" id="driveConnectBtn">Conectar ao Google Drive</button>
+            <button type="button" class="btn-add btn-inline btn-secondary" id="drivePushBtn" style="display:none;">Enviar para o Drive</button>
+            <button type="button" class="btn-add btn-inline btn-secondary" id="drivePullBtn" style="display:none;">Baixar do Drive</button>
+            <button type="button" class="btn-add btn-inline btn-secondary" id="driveDisconnectBtn" style="display:none;">Desconectar</button>
+          </div>
+          <label class="checkbox-label" style="margin-top:14px; display:none;" id="autoSyncWrap">
+            <input type="checkbox" id="autoSyncToggle">
+            Sincronizar automaticamente a cada alteração
+          </label>
+          <p style="margin-top:10px;">
+            <button type="button" class="link-btn" id="editClientId">trocar Client ID</button>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<button class="fab" id="fabAdd" aria-label="Adicionar lançamento">+</button>
+
+<footer>
+  Os dados ficam salvos apenas neste navegador (localStorage) — não são enviados para nenhum servidor. Use "Exportar backup" em Categorias para guardar uma cópia de segurança.
+</footer>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="script.js"></script>
+
+</body>
+</html>
