@@ -150,7 +150,10 @@
           <div class="meta"><span class="tag">${escapeHtml(t.categoria)}</span>${parcelaTag}<span>${dataFmt}</span></div>
         </div>
         <div class="ledger-amount ${t.tipo}">${t.tipo === 'despesa' ? '-' : '+'} ${fmtBRL(t.valor)}</div>
-        <button class="del-btn" data-id="${t.id}" aria-label="Excluir lançamento">🗑</button>
+        <div class="row-actions">
+          <button class="edit-btn" data-id="${t.id}" aria-label="Editar lançamento">✏️</button>
+          <button class="del-btn" data-id="${t.id}" aria-label="Excluir lançamento">🗑</button>
+        </div>
       `;
       list.appendChild(li);
     });
@@ -224,16 +227,57 @@
   }
 
   function splitInstallments(total, n){
-    const cents = Math.round(total * 100);
-    const base = Math.floor(cents / n);
-    const remainder = cents - base * n;
+    const normalizedTotal = Number(total) || 0;
+    const normalizedN = Number(n) || 0;
+    if(normalizedN <= 0) return [];
     const values = [];
-    for(let i = 0; i < n; i++){
-      // spread the leftover cents across the first installments
-      const v = base + (i < remainder ? 1 : 0);
-      values.push(v / 100);
+    for(let i = 0; i < normalizedN; i++){
+      values.push(normalizedTotal);
     }
     return values;
+  }
+
+  function formResetState(){
+    document.getElementById('txForm').reset();
+    document.getElementById('editTxId').value = '';
+    document.getElementById('editGroupId').value = '';
+    document.getElementById('formTitle').textContent = 'Novo lançamento';
+    document.getElementById('submitTxBtn').textContent = 'Adicionar lançamento';
+    document.getElementById('tipoDespesa').checked = true;
+    const numParcelasInput = document.getElementById('numParcelas');
+    numParcelasInput.value = '2';
+    numParcelasInput.disabled = true;
+    document.getElementById('parcelaFields').style.display = 'none';
+    document.getElementById('parcelaNote').style.display = 'none';
+    document.getElementById('data').valueAsDate = new Date();
+    updateParcelaLabels();
+    updateParcelaPreview();
+  }
+
+  function fillFormWithTransaction(tx){
+    formResetState();
+    document.getElementById('editTxId').value = tx.id;
+    document.getElementById('editGroupId').value = '';
+    document.getElementById('desc').value = tx.descricao || '';
+    document.getElementById('valor').value = tx.valor;
+    document.getElementById('data').value = tx.data;
+    document.getElementById('categoria').value = tx.categoria || '';
+    const isDespesa = tx.tipo === 'despesa';
+    document.getElementById('tipoDespesa').checked = isDespesa;
+    document.getElementById('tipoReceita').checked = !isDespesa;
+    const isParcelado = Boolean(tx.grupoId);
+    document.getElementById('isParcelado').checked = isParcelado;
+    const totalParcelas = tx.parcelaTotal || 1;
+    const numParcelasInput = document.getElementById('numParcelas');
+    numParcelasInput.value = totalParcelas;
+    numParcelasInput.disabled = !isParcelado;
+    document.getElementById('parcelaFields').style.display = isParcelado ? 'grid' : 'none';
+    document.getElementById('parcelaNote').style.display = isParcelado ? 'block' : 'none';
+    document.getElementById('formTitle').textContent = isParcelado ? 'Editar parcela do parcelamento' : 'Editar lançamento';
+    document.getElementById('submitTxBtn').textContent = 'Salvar alterações';
+    updateParcelaLabels();
+    updateParcelaPreview();
+    openSheet();
   }
 
   function genGroupId(){
@@ -249,9 +293,8 @@
     const isDespesa = document.getElementById('tipoDespesa').checked;
 
     if(checked && n >= 2 && total > 0){
-      const values = splitInstallments(total, n);
-      preview.textContent = n + 'x de ' + fmtBRL(values[0]) + (values[0] !== values[values.length-1] ? ' (aprox.)' : '');
-      hint.textContent = isDespesa ? 'Valor total da compra' : 'Valor total da venda/recebimento';
+      preview.textContent = n + 'x de ' + fmtBRL(total);
+      hint.textContent = isDespesa ? 'Valor de cada parcela' : 'Valor de cada parcela';
     } else {
       preview.textContent = '—';
       hint.textContent = '';
@@ -264,6 +307,11 @@
   }
 
   document.getElementById('isParcelado').addEventListener('change', function(){
+    const numParcelasInput = document.getElementById('numParcelas');
+    numParcelasInput.disabled = !this.checked;
+    if(!this.checked){
+      numParcelasInput.value = '2';
+    }
     document.getElementById('parcelaFields').style.display = this.checked ? 'grid' : 'none';
     document.getElementById('parcelaNote').style.display = this.checked ? 'block' : 'none';
     updateParcelaPreview();
@@ -287,10 +335,46 @@
     const categoria = document.getElementById('categoria').value;
     const isParcelado = document.getElementById('isParcelado').checked;
     const numParcelas = parseInt(document.getElementById('numParcelas').value, 10) || 0;
+    const editTxId = document.getElementById('editTxId').value;
+    const editGroupId = document.getElementById('editGroupId').value;
 
     if(!descricao || !valor || !data){ return; }
 
-    if(isParcelado && numParcelas >= 2){
+    if(editGroupId){
+      const groupTxs = transactions.filter(t => t.grupoId === editGroupId).sort((a,b) => a.parcelaAtual - b.parcelaAtual);
+      const groupValues = splitInstallments(valor, numParcelas || groupTxs.length || 1);
+      groupTxs.forEach((tx, index) => {
+        const target = transactions.find(item => item.id === tx.id);
+        if(!target) return;
+        target.tipo = tipo;
+        target.descricao = descricao;
+        target.valor = groupValues[index] || valor;
+        target.data = addMonthsClamped(data, index);
+        target.categoria = categoria;
+        target.grupoId = editGroupId;
+        target.parcelaAtual = index + 1;
+        target.parcelaTotal = numParcelas || groupTxs.length;
+      });
+    } else if(editTxId){
+      const tx = transactions.find(t => t.id === editTxId);
+      if(tx){
+        tx.tipo = tipo;
+        tx.descricao = descricao;
+        tx.valor = valor;
+        tx.data = data;
+        tx.categoria = categoria;
+        if(isParcelado && numParcelas >= 2){
+          const existingGroup = tx.grupoId || genGroupId();
+          tx.grupoId = existingGroup;
+          tx.parcelaAtual = tx.parcelaAtual || 1;
+          tx.parcelaTotal = numParcelas;
+        } else if(tx.grupoId && !isParcelado){
+          tx.grupoId = undefined;
+          tx.parcelaAtual = undefined;
+          tx.parcelaTotal = undefined;
+        }
+      }
+    } else if(isParcelado && numParcelas >= 2){
       const values = splitInstallments(valor, numParcelas);
       const grupoId = genGroupId();
       for(let i = 0; i < numParcelas; i++){
@@ -314,19 +398,53 @@
     const [y,m] = data.split('-').map(Number);
     currentDate = new Date(y, m-1, 1);
 
-    this.reset();
-    document.getElementById('tipoDespesa').checked = true;
-    document.getElementById('parcelaFields').style.display = 'none';
-    document.getElementById('parcelaNote').style.display = 'none';
-    document.getElementById('data').valueAsDate = new Date();
-    updateParcelaLabels();
-    updateParcelaPreview();
+    formResetState();
     closeSheet();
     render();
   });
 
-  // Delete (parcela única ou série inteira)
+  // Edit and delete (parcela única ou série inteira)
   document.getElementById('ledgerList').addEventListener('click', function(e){
+    const editBtn = e.target.closest('.edit-btn');
+    if(editBtn){
+      const id = editBtn.getAttribute('data-id');
+      const tx = transactions.find(t => t.id === id);
+      if(!tx) return;
+      if(tx.grupoId && transactions.filter(t => t.grupoId === tx.grupoId).length > 1){
+        const editarTudo = confirm(
+          'Esta é a parcela ' + tx.parcelaAtual + ' de ' + tx.parcelaTotal + '.\n\n' +
+          'Clique OK para editar TODAS as parcelas desta compra, ou Cancelar para editar apenas esta parcela.'
+        );
+        if(editarTudo){
+          const group = transactions.filter(t => t.grupoId === tx.grupoId).sort((a,b) => a.parcelaAtual - b.parcelaAtual);
+          const first = group[0];
+          formResetState();
+          document.getElementById('editGroupId').value = tx.grupoId;
+          document.getElementById('editTxId').value = '';
+          document.getElementById('desc').value = first.descricao;
+          document.getElementById('valor').value = first.valor;
+          document.getElementById('data').value = first.data;
+          document.getElementById('categoria').value = first.categoria;
+          document.getElementById('tipoDespesa').checked = first.tipo === 'despesa';
+          document.getElementById('tipoReceita').checked = first.tipo === 'receita';
+          document.getElementById('isParcelado').checked = true;
+          const numParcelasInput = document.getElementById('numParcelas');
+          numParcelasInput.value = first.parcelaTotal;
+          numParcelasInput.disabled = false;
+          document.getElementById('parcelaFields').style.display = 'grid';
+          document.getElementById('parcelaNote').style.display = 'block';
+          document.getElementById('formTitle').textContent = 'Editar parcelamento';
+          document.getElementById('submitTxBtn').textContent = 'Salvar alterações';
+          updateParcelaLabels();
+          updateParcelaPreview();
+          openSheet();
+          return;
+        }
+      }
+      fillFormWithTransaction(tx);
+      return;
+    }
+
     const btn = e.target.closest('.del-btn');
     if(!btn) return;
     const id = btn.getAttribute('data-id');
@@ -352,14 +470,17 @@
 
   // Mobile form panel handling (simple show/hide, no fixed overlay)
   const formPanel = document.getElementById('form-panel');
-  function openSheet(){
+  function openSheet(options = {}){
+    const { scrollToForm = false } = options;
     formPanel.classList.add('open');
-    formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if(scrollToForm && window.innerWidth <= 760){
+      formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
   function closeSheet(){
     formPanel.classList.remove('open');
   }
-  document.getElementById('fabAdd').addEventListener('click', openSheet);
+  document.getElementById('fabAdd').addEventListener('click', () => openSheet({ scrollToForm: true }));
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
 
   // Category manager toggle
@@ -746,6 +867,7 @@
   // ===================== /Google Drive sync =====================
 
   // Default date field to today
+  formResetState();
   document.getElementById('data').valueAsDate = new Date();
   updateParcelaLabels();
 
