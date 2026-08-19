@@ -8,11 +8,16 @@
     'Educação', 'Contas fixas', 'Salário', 'Outros'
   ];
 
+  // Estado principal da aplicação.
+  // transactions guarda todos os lançamentos e categories guarda as opções do seletor.
   let transactions = loadData();
   let categories = loadCategories();
   let currentDate = new Date();
   currentDate.setDate(1);
 
+  // ===== Carregamento e persistência de dados =====
+  // Aqui o app salva e lê os dados no localStorage do navegador.
+  // Isso permite manter as informações mesmo após recarregar a página.
   function loadCategories(){
     try{
       const raw = localStorage.getItem(CAT_STORAGE_KEY);
@@ -35,6 +40,8 @@
     }
   }
 
+  // Atualiza o seletor de categoria com as opções atuais.
+  // Também tenta manter a categoria selecionada antes da recriação da lista.
   function renderCategorySelect(){
     const select = document.getElementById('categoria');
     const prevValue = select.value;
@@ -50,6 +57,8 @@
     }
   }
 
+  // Monta a lista visual do gerenciador de categorias.
+  // Cada item pode ser removido individualmente pelo botão da lixeira.
   function renderCategoryManager(){
     const list = document.getElementById('catList');
     list.innerHTML = '';
@@ -66,6 +75,7 @@
     });
   }
 
+  // Lê a lista de transações armazenada no navegador.
   function loadData(){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -76,6 +86,7 @@
     }
   }
 
+  // Salva os lançamentos no localStorage e dispara sincronização automática, se existir.
   function saveData(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
@@ -86,18 +97,22 @@
     }
   }
 
+  // Formata valores em moeda brasileira, ex: R$ 1.234,56.
   function fmtBRL(n){
     return n.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
   }
 
+  // Gera a chave do mês para comparar datas em formato YYYY-MM.
   function monthKey(d){
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
   }
 
+  // Pega a chave do mês da transação a partir da sua data.
   function txMonthKey(tx){
     return tx.data.slice(0,7);
   }
 
+  // Soma o saldo até o mês informado, somando receitas e subtraindo despesas.
   function cumulativeBalanceUpTo(mKey){
     let total = 0;
     transactions.forEach(t => {
@@ -108,6 +123,9 @@
     return total;
   }
 
+  // ===== Renderização dos dados na tela =====
+  // Esta função atualiza o mês atual, os totais do mês e a lista de lançamentos.
+  // Também recalcula o saldo acumulado e monta os gráficos de barras por categoria.
   function render(){
     const label = document.getElementById('monthLabel');
     label.textContent = monthNames[currentDate.getMonth()] + ' de ' + currentDate.getFullYear();
@@ -201,13 +219,15 @@
     });
   }
 
+  // Escapa strings antes de inserir em HTML para evitar quebrar a página com caracteres especiais.
   function escapeHtml(str){
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
   }
 
-  // Month navigation
+  // ===== Navegação por mês =====
+  // Botões para avançar ou voltar um mês na visão principal.
   document.getElementById('prevMonth').addEventListener('click', () => {
     currentDate.setMonth(currentDate.getMonth() - 1);
     render();
@@ -217,7 +237,8 @@
     render();
   });
 
-  // --- Parcelamento helpers ---
+  // ===== Lógica de parcelamento =====
+  // Essas funções ajudam a criar parcelas e ajustar datas para cada item do parcelamento.
   function addMonthsClamped(dateStr, monthsToAdd){
     const [y, m, d] = dateStr.split('-').map(Number);
     const target = new Date(y, (m - 1) + monthsToAdd, 1);
@@ -237,6 +258,7 @@
     return values;
   }
 
+  // Reseta o formulário para o estado inicial de criação de um novo lançamento.
   function formResetState(){
     document.getElementById('txForm').reset();
     document.getElementById('editTxId').value = '';
@@ -254,6 +276,7 @@
     updateParcelaPreview();
   }
 
+  // Preenche o formulário com os dados de uma transação para edição.
   function fillFormWithTransaction(tx){
     formResetState();
     document.getElementById('editTxId').value = tx.id;
@@ -280,10 +303,12 @@
     openSheet();
   }
 
+  // Gera um identificador único para agrupar parcelas de um mesmo parcelamento.
   function genGroupId(){
     return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
   }
 
+  // Atualiza o texto de pré-visualização do parcelamento para o usuário ver o valor por parcela.
   function updateParcelaPreview(){
     const checked = document.getElementById('isParcelado').checked;
     const n = parseInt(document.getElementById('numParcelas').value, 10) || 0;
@@ -301,11 +326,13 @@
     }
   }
 
+  // Ajusta o texto da label conforme o tipo de lançamento.
   function updateParcelaLabels(){
     const isDespesa = document.getElementById('tipoDespesa').checked;
     document.getElementById('parcelaLabelText').textContent = isDespesa ? 'Compra parcelada' : 'Recebimento parcelado (venda a prazo)';
   }
 
+  // Quando o checkbox de parcelamento é ativado/desativado, ajusta a interface do formulário.
   document.getElementById('isParcelado').addEventListener('change', function(){
     const numParcelasInput = document.getElementById('numParcelas');
     numParcelasInput.disabled = !this.checked;
@@ -325,7 +352,8 @@
     });
   });
 
-  // Form submit
+  // ===== Envio do formulário =====
+  // Aqui acontece a criação, edição e parcelamento dos lançamentos.
   document.getElementById('txForm').addEventListener('submit', function(e){
     e.preventDefault();
     const tipo = document.querySelector('input[name="tipo"]:checked').value;
@@ -403,7 +431,9 @@
     render();
   });
 
-  // Edit and delete (parcela única ou série inteira)
+  // ===== Edição e exclusão =====
+  // A lista principal também trata ações de editar e apagar lançamentos.
+  // Se o item for parte de um parcelamento, o usuário pode escolher modificar/excluir toda a série.
   document.getElementById('ledgerList').addEventListener('click', function(e){
     const editBtn = e.target.closest('.edit-btn');
     if(editBtn){
@@ -468,7 +498,8 @@
     render();
   });
 
-  // Mobile form panel handling (simple show/hide, no fixed overlay)
+  // ===== Painel do formulário mobile =====
+  // Abre e fecha o formulário em estilo sheet, útil em telas menores.
   const formPanel = document.getElementById('form-panel');
   function openSheet(options = {}){
     const { scrollToForm = false } = options;
@@ -483,7 +514,8 @@
   document.getElementById('fabAdd').addEventListener('click', () => openSheet({ scrollToForm: true }));
   document.getElementById('sheetClose').addEventListener('click', closeSheet);
 
-  // Category manager toggle
+  // ===== Gerenciamento de categorias =====
+  // Abre ou fecha o painel de categorias para criar e remover itens da lista.
   document.getElementById('openCatManager').addEventListener('click', function(){
     const panel = document.getElementById('catManagerPanel');
     const isOpen = panel.style.display !== 'none';
@@ -491,7 +523,7 @@
     if(!isOpen) panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
   });
 
-  // Add category
+  // Adiciona uma nova categoria no sistema.
   document.getElementById('catForm').addEventListener('submit', function(e){
     e.preventDefault();
     const nomeInput = document.getElementById('catNome');
@@ -511,7 +543,7 @@
     document.getElementById('categoria').value = nome;
   });
 
-  // Delete category
+  // Remove uma categoria e mostra confirmação para evitar exclusão acidental.
   document.getElementById('catList').addEventListener('click', function(e){
     const btn = e.target.closest('.del-btn');
     if(!btn) return;
@@ -532,7 +564,8 @@
     render();
   });
 
-  // Export backup
+  // ===== Backup local =====
+  // Exporta todos os dados para um arquivo JSON no computador do usuário.
   document.getElementById('exportBackup').addEventListener('click', function(){
     const payload = {
       app: 'financas-casa',
@@ -553,7 +586,7 @@
     document.getElementById('backupStatus').textContent = 'Backup exportado agora há pouco. Guarde o arquivo em um lugar seguro.';
   });
 
-  // Import backup
+  // Importa um backup JSON e substitui os dados locais com confirmação do usuário.
   document.getElementById('importBackup').addEventListener('change', function(e){
     const file = e.target.files[0];
     if(!file) return;
@@ -586,7 +619,9 @@
     reader.readAsText(file);
   });
 
-  // ===================== Google Drive sync =====================
+  // ===================== Sincronização com o Google Drive =====================
+  // Essa parte conecta o app ao Google Drive para salvar backups na nuvem,
+  // permitindo importar/exportar dados de forma centralizada.
   const DRIVE_CLIENT_ID_KEY = 'household-ledger-drive-client-id';
   const DRIVE_AUTO_SYNC_KEY = 'household-ledger-drive-autosync';
   const DRIVE_CONNECTED_KEY = 'household-ledger-drive-connected';
@@ -601,8 +636,10 @@
   let drivePushTimer = null;
   let driveIsAutoAttempt = false;
 
+  // Retorna o elemento que mostra a mensagem de status do Drive.
   function driveStatusEl(){ return document.getElementById('driveStatusText'); }
 
+  // Atualiza a interface de sincronização conforme o estado da conexão.
   function renderDriveUI(){
     const setupEl = document.getElementById('driveSetup');
     const connectedEl = document.getElementById('driveConnected');
@@ -638,11 +675,13 @@
     }
   }
 
+  // Escreve uma mensagem no painel de status do Drive.
   function setDriveStatus(text){
     const el = driveStatusEl();
     if(el) el.textContent = text;
   }
 
+  // Espera a biblioteca do Google carregar antes de tentar conectar.
   function ensureGisLoaded(cb){
     if(window.google && window.google.accounts && window.google.accounts.oauth2){ cb(); return; }
     let tries = 0;
@@ -658,6 +697,7 @@
     }, 250);
   }
 
+  // Inicia o cliente OAuth do Google para pedir acesso ao Drive.
   function initDriveTokenClient(){
     if(!driveClientId) return;
     ensureGisLoaded(() => {
@@ -676,6 +716,7 @@
     });
   }
 
+  // Trata a resposta da autenticação do Google e define o token de acesso.
   function handleDriveTokenResponse(resp){
     const wasAuto = driveIsAutoAttempt;
     driveIsAutoAttempt = false;
@@ -698,6 +739,7 @@
     driveFindOrPrepareFile();
   }
 
+  // Faz chamadas à API do Drive com o token de autenticação do usuário.
   async function driveApiFetch(url, options){
     options = options || {};
     options.headers = Object.assign({}, options.headers, {
@@ -713,6 +755,7 @@
     return res;
   }
 
+  // Procura o arquivo de backup no Drive e tenta criar um se não existir.
   async function driveFindOrPrepareFile(){
     try{
       const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
@@ -730,6 +773,7 @@
     }
   }
 
+  // Cria um novo arquivo JSON no Drive com os dados atuais do app.
   async function driveCreateFile(content){
     const metadata = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
     const boundary = 'ledgerbound' + Date.now();
@@ -746,6 +790,7 @@
     return data.id;
   }
 
+  // Atualiza o conteúdo de um arquivo do Drive já existente.
   async function driveUpdateFile(fileId, content){
     await driveApiFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
       method: 'PATCH',
@@ -754,6 +799,7 @@
     });
   }
 
+  // Envia os dados locais para o Drive.
   async function drivePush(silent){
     if(!driveAccessToken){ return; }
     try{
@@ -776,6 +822,7 @@
     }
   }
 
+  // Carrega os dados do backup do Drive para o navegador, com confirmação.
   async function drivePull(){
     if(!driveAccessToken) return;
     if(!driveFileId){
@@ -805,12 +852,14 @@
     }
   }
 
+  // Agenda uma sincronização automática após mudanças, evitando muitas requisições seguidas.
   function scheduleAutoPush(){
     if(!driveAutoSync || !driveAccessToken) return;
     clearTimeout(drivePushTimer);
     drivePushTimer = setTimeout(() => drivePush(true), 1200);
   }
 
+  // Salva o Client ID do Google e inicializa a conexão.
   document.getElementById('saveClientId').addEventListener('click', function(){
     const val = document.getElementById('driveClientIdInput').value.trim();
     if(!val){ return; }
@@ -820,6 +869,7 @@
     initDriveTokenClient();
   });
 
+  // Permite alterar o Client ID do Google e resetar a sessão atual.
   document.getElementById('editClientId').addEventListener('click', function(){
     driveClientId = '';
     driveAccessToken = null;
@@ -830,6 +880,7 @@
     renderDriveUI();
   });
 
+  // Conecta o usuário à conta do Google para autorizar o acesso ao Drive.
   document.getElementById('driveConnectBtn').addEventListener('click', function(){
     if(!driveTokenClient){ initDriveTokenClient(); }
     setTimeout(() => {
@@ -839,6 +890,7 @@
     }, 300);
   });
 
+  // Botões de sincronização: enviar, baixar e desconectar do Drive.
   document.getElementById('drivePushBtn').addEventListener('click', () => drivePush(false));
   document.getElementById('drivePullBtn').addEventListener('click', () => drivePull());
 
@@ -853,12 +905,14 @@
     setDriveStatus('Desconectado.');
   });
 
+  // Ativa ou desativa a sincronização automática com o Drive.
   document.getElementById('autoSyncToggle').addEventListener('change', function(){
     driveAutoSync = this.checked;
     localStorage.setItem(DRIVE_AUTO_SYNC_KEY, driveAutoSync ? 'true' : 'false');
     if(driveAutoSync) drivePush(true);
   });
 
+  // Se já houver um Client ID salvo, inicializa a integração imediatamente.
   if(driveClientId){
     document.getElementById('driveClientIdInput').value = driveClientId;
     initDriveTokenClient();
