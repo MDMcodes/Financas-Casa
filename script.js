@@ -8,6 +8,15 @@
     'Educação', 'Contas fixas', 'Salário', 'Outros'
   ];
 
+  const dom = {};
+  const element = id => dom[id] || (dom[id] = document.getElementById(id));
+  const setVisible = (id, visible, display = 'block') => {
+    element(id).style.display = visible ? display : 'none';
+  };
+  const setText = (id, text) => {
+    element(id).textContent = text;
+  };
+
   // Estado principal da aplicação.
   // transactions guarda todos os lançamentos e categories guarda as opções do seletor.
   let transactions = loadData();
@@ -127,8 +136,7 @@
   // Esta função atualiza o mês atual, os totais do mês e a lista de lançamentos.
   // Também recalcula o saldo acumulado e monta os gráficos de barras por categoria.
   function render(){
-    const label = document.getElementById('monthLabel');
-    label.textContent = monthNames[currentDate.getMonth()] + ' de ' + currentDate.getFullYear();
+    setText('monthLabel', monthNames[currentDate.getMonth()] + ' de ' + currentDate.getFullYear());
 
     const mKey = monthKey(currentDate);
     const monthTx = transactions
@@ -144,18 +152,17 @@
     const saldoAcumulado = cumulativeBalanceUpTo(mKey);
     const saldoAnterior = saldoAcumulado - netMes;
 
-    document.getElementById('valReceitas').textContent = fmtBRL(receitas);
-    document.getElementById('valDespesas').textContent = fmtBRL(despesas);
-    const saldoEl = document.getElementById('valSaldo');
+    setText('valReceitas', fmtBRL(receitas));
+    setText('valDespesas', fmtBRL(despesas));
+    const saldoEl = element('valSaldo');
     saldoEl.textContent = fmtBRL(saldoAcumulado);
     saldoEl.style.color = saldoAcumulado < 0 ? 'var(--red)' : 'var(--ink)';
 
-    const saldoSubEl = document.getElementById('saldoSub');
-    saldoSubEl.textContent = 'vindo do mês anterior: ' + fmtBRL(saldoAnterior);
+    setText('saldoSub', 'vindo do mês anterior: ' + fmtBRL(saldoAnterior));
 
-    const list = document.getElementById('ledgerList');
+    const list = element('ledgerList');
     list.innerHTML = '';
-    document.getElementById('emptyState').style.display = monthTx.length ? 'none' : 'block';
+    setVisible('emptyState', !monthTx.length);
 
     monthTx.forEach(t => {
       const li = document.createElement('li');
@@ -176,46 +183,29 @@
       list.appendChild(li);
     });
 
-    // spending breakdown (despesas only) — descrição - categoria
-    const despesasList = monthTx
-      .filter(t => t.tipo === 'despesa')
-      .sort((a,b) => b.valor - a.valor);
-    const bdEl = document.getElementById('breakdown');
-    bdEl.innerHTML = '';
-    document.getElementById('emptyBreakdown').style.display = despesasList.length ? 'none' : 'block';
+    renderBreakdown(monthTx, 'despesa', 'breakdown', 'emptyBreakdown');
+    renderBreakdown(monthTx, 'receita', 'breakdownReceitas', 'emptyBreakdownReceitas', true);
+  }
 
-    const maxVal = despesasList.length ? despesasList[0].valor : 1;
-    despesasList.forEach(t => {
-      const pct = Math.max(4, Math.round((t.valor / maxVal) * 100));
+  function renderBreakdown(monthTx, tipo, targetId, emptyId, income = false){
+    const entries = monthTx
+      .filter(t => t.tipo === tipo)
+      .sort((a,b) => b.valor - a.valor);
+    const target = element(targetId);
+    target.innerHTML = '';
+    setVisible(emptyId, !entries.length);
+
+    const maxValue = entries.length ? entries[0].valor : 1;
+    entries.forEach(t => {
+      const pct = Math.max(4, Math.round((t.valor / maxValue) * 100));
       const label = `${t.descricao} - ${t.categoria}`;
       const row = document.createElement('div');
       row.className = 'breakdown-row';
       row.innerHTML = `
         <div class="bd-top"><span>${escapeHtml(label)}</span><span class="amt">${fmtBRL(t.valor)}</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="bar-track"><div class="bar-fill${income ? ' income' : ''}" style="width:${pct}%"></div></div>
       `;
-      bdEl.appendChild(row);
-    });
-
-    // income breakdown (receitas only) — descrição - categoria
-    const receitasList = monthTx
-      .filter(t => t.tipo === 'receita')
-      .sort((a,b) => b.valor - a.valor);
-    const bdRecEl = document.getElementById('breakdownReceitas');
-    bdRecEl.innerHTML = '';
-    document.getElementById('emptyBreakdownReceitas').style.display = receitasList.length ? 'none' : 'block';
-
-    const maxValRec = receitasList.length ? receitasList[0].valor : 1;
-    receitasList.forEach(t => {
-      const pct = Math.max(4, Math.round((t.valor / maxValRec) * 100));
-      const label = `${t.descricao} - ${t.categoria}`;
-      const row = document.createElement('div');
-      row.className = 'breakdown-row';
-      row.innerHTML = `
-        <div class="bd-top"><span>${escapeHtml(label)}</span><span class="amt">${fmtBRL(t.valor)}</span></div>
-        <div class="bar-track"><div class="bar-fill income" style="width:${pct}%"></div></div>
-      `;
-      bdRecEl.appendChild(row);
+      target.appendChild(row);
     });
   }
 
@@ -256,6 +246,20 @@
       values.push(normalizedTotal);
     }
     return values;
+  }
+
+  function readTransactionForm(){
+    return {
+      tipo: document.querySelector('input[name="tipo"]:checked').value,
+      descricao: element('desc').value.trim(),
+      valor: parseFloat(element('valor').value),
+      data: element('data').value,
+      categoria: element('categoria').value,
+      isParcelado: element('isParcelado').checked,
+      numParcelas: parseInt(element('numParcelas').value, 10) || 0,
+      editTxId: element('editTxId').value,
+      editGroupId: element('editGroupId').value
+    };
   }
 
   // Reseta o formulário para o estado inicial de criação de um novo lançamento.
@@ -356,15 +360,10 @@
   // Aqui acontece a criação, edição e parcelamento dos lançamentos.
   document.getElementById('txForm').addEventListener('submit', function(e){
     e.preventDefault();
-    const tipo = document.querySelector('input[name="tipo"]:checked').value;
-    const descricao = document.getElementById('desc').value.trim();
-    const valor = parseFloat(document.getElementById('valor').value);
-    const data = document.getElementById('data').value;
-    const categoria = document.getElementById('categoria').value;
-    const isParcelado = document.getElementById('isParcelado').checked;
-    const numParcelas = parseInt(document.getElementById('numParcelas').value, 10) || 0;
-    const editTxId = document.getElementById('editTxId').value;
-    const editGroupId = document.getElementById('editGroupId').value;
+    const {
+      tipo, descricao, valor, data, categoria, isParcelado,
+      numParcelas, editTxId, editGroupId
+    } = readTransactionForm();
 
     if(!descricao || !valor || !data){ return; }
 
